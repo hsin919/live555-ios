@@ -252,9 +252,11 @@ void RTPReceptionStats
   if (seqNumLT((u_int16_t)oldSeqNum, seqNum)) {
     // This packet was not an old packet received out of order, so check it:
     
-    if (seqNumDifference >= 0x8000) {
+    if (seqNumDifference >= 0x8000) { // 1 0 0 0 0 0 0 0 0....     0
+                                      // 15                        0
+        // 表示是負值
       // The sequence number wrapped around, so start a new cycle:
-      seqNumCycle += 0x10000;
+      seqNumCycle += 0x10000; // 65536 = 2^16
     }
     
     newSeqNum = seqNumCycle|seqNum;
@@ -271,6 +273,7 @@ void RTPReceptionStats
     
     newSeqNum = seqNumCycle|seqNum;
     if (newSeqNum < fBaseExtSeqNumReceived) {
+        // 如果 目前的 seqNum 比紀錄的小  就記著目前的
       fBaseExtSeqNumReceived = newSeqNum;
     }
   }

@@ -70,6 +70,7 @@ Boolean MPEG1or2VideoRTPSource
 
   unsigned short pictureType = (header>>8)&0x7;
   if (pictureType == 1) { // an I frame
+      // I frame 可以用在JitterBuffer
     return True;
   } else { // a P, B, D, or other unknown frame type
     return False;
