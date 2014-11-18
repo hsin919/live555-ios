@@ -101,6 +101,7 @@ Boolean H264VideoRTPSource
       if (packetSize < expectedHeaderSize) return False;
       fCurrentPacketBeginsFrame = False;
     }
+      // 這邊決定是否有收完整個frame
     fCurrentPacketCompletesFrame = (endBit != 0);
     break;
   }

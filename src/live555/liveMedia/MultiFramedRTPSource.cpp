@@ -70,6 +70,7 @@ MultiFramedRTPSource
   : RTPSource(env, RTPgs, rtpPayloadFormat, rtpTimestampFrequency) {
   reset();
   fReorderingBuffer = new ReorderingPacketBuffer(packetFactory);
+      // init reordering buffer
 
   // Try to use a big receive buffer for RTP:
   increaseReceiveBufferTo(env, RTPgs->socketNum(), 50*1024);
@@ -140,6 +141,7 @@ void MultiFramedRTPSource::doGetNextFrame1() {
       // Before using the packet, check whether it has a special header
       // that needs to be processed:
       unsigned specialHeaderSize;
+        // fCurrentPacketCompletesFrame 在這邊決定 by using polymorphism ex: H264VideoRTPSource
       if (!processSpecialHeader(nextPacket, specialHeaderSize)) {
 	// Something's wrong with the header; reject the packet:
 	fReorderingBuffer->releaseUsedPacket(nextPacket);
@@ -195,6 +197,8 @@ void MultiFramedRTPSource::doGetNextFrame1() {
 	// Common case optimization: There are no more queued incoming packets, so this code will not get
 	// executed again without having first returned to the event loop.  Call our 'after getting' function
 	// directly, because there's no risk of a long chain of recursion (and thus stack overflow):
+          
+          // 拿到完整的frame callback afterGettingFunc*
 	afterGetting(this);
       } else {
 	// Special case: Call our 'after getting' function via the event loop.
@@ -248,9 +252,12 @@ void MultiFramedRTPSource::networkReadHandler1() {
 
     // Check for the 12-byte RTP header:
     if (bPacket->dataSize() < 12) break;
+      // 解析 header
     unsigned rtpHdr = ntohl(*(u_int32_t*)(bPacket->data())); ADVANCE(4);
     Boolean rtpMarkerBit = (rtpHdr&0x00800000) != 0;
+      // Markerbit
     unsigned rtpTimestamp = ntohl(*(u_int32_t*)(bPacket->data()));ADVANCE(4);
+      // timestamp
     unsigned rtpSSRC = ntohl(*(u_int32_t*)(bPacket->data())); ADVANCE(4);
 
     // Check the RTP version number (it should be 2):
@@ -292,6 +299,7 @@ void MultiFramedRTPSource::networkReadHandler1() {
       fReorderingBuffer->resetHaveSeenFirstPacket();
     }
     unsigned short rtpSeqNo = (unsigned short)(rtpHdr&0xFFFF);
+      // Sequence number
     Boolean usableInJitterCalculation
       = packetIsUsableInJitterCalculation((bPacket->data()),
 						  bPacket->dataSize());
@@ -528,6 +536,7 @@ Boolean ReorderingPacketBuffer::storePacket(BufferedPacket* bPacket) {
   // Rare case: This packet is out-of-order.  Run through the list (from the head), to figure out where it belongs:
   BufferedPacket* beforePtr = NULL;
   BufferedPacket* afterPtr = fHeadPacket;
+    // 用link list 把buffer 按照seq number 儲存起來
   while (afterPtr != NULL) {
     if (seqNumLT(rtpSeqNo, afterPtr->rtpSeqNo())) break; // it comes here
     if (rtpSeqNo == afterPtr->rtpSeqNo()) {
@@ -588,6 +597,7 @@ BufferedPacket* ReorderingPacketBuffer
   if (uSecondsSinceReceived > fThresholdTime) {
     fNextExpectedSeqNo = fHeadPacket->rtpSeqNo();
         // we've given up on earlier packets now
+      // 超過 threshold 就放棄前一包 by turn on packetLossPreceded, 等等會被呼叫releaseUsedPacket
     packetLossPreceded = True;
     return fHeadPacket;
   }
